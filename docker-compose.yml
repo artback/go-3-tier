@@ -1,0 +1,70 @@
+version: '3'
+services:
+  database:
+    # download the postgres image :latest or latest tag is implied if nothing else is set 
+    image: "postgres"
+    # this sets the hostname of the service
+    hostname: 'database'
+    #this part is for when the application is deployed to a swarm ignored when 
+    deploy:
+      #only one replica of database container, database application is not made for horizontal scaling
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        #reservations: is a soft limit - Docker makes best effort to return to it
+        #limits: is a hard limit container can't use more resource than this
+        reservations:
+          # uses 25% of one CPU core
+          cpus: '0.25'
+          # uses max 256M memory
+          memory: 256M
+    # specifiy a filepath for an file where to load enviorment variables into the container      
+    env_file:
+      - database.env
+    # mounts to the containers either named as the datebase-data which is named globally in the 'volumes' or unmaned bind mounts to the filesystem
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+      - ./pg:/docker-entrypoint-initdb.d/
+    #specifiy which network to    
+    networks:
+      # More setting such as ip adress and more could be set here
+      data:
+  backend:
+    hostname: 'backend'
+    deploy:
+      replicas: 2
+      # these containers will be restarted everytime they are stopped even if they are stopped manually. 
+      restart_policy:
+        condition: any
+        #how long before spawning a replacement container
+        delay: 5s 
+      update_config:
+        #the number of containers to update at a time
+        parallelism: 2
+        # the time between updating a group of containers
+        delay: 10s
+      # Soft limit - Docker makes best effort to return to it
+      resources:
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    image: "sentimentel/go-3-tier_backend:latest"
+    env_file:
+      - database.env
+    # this binds the 8080 port on the host to port 8080 on this container
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: ingress
+    networks:
+      data:
+        #create an volume       
+volumes:
+  database-data:
+    # create a network of type overlay
+networks:
+  data:
+    driver: overlay
+

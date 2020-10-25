@@ -1,4 +1,4 @@
-version: '3'
+version: '3.2'
 services:
   database:
     # download the postgres image :latest or latest tag is implied if nothing else is set 
